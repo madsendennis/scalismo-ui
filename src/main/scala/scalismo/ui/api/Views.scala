@@ -709,6 +709,8 @@ object ImageView {
 // Note this class does not extend Object view, as there is not really a corresponding node to this concept
 case class StatisticalMeshModelViewControls private[ui] (meshView: TriangleMeshView, shapeModelTransformationView: ShapeModelTransformationView)
 case class StatisticalVolumeMeshModelViewControls private[ui] (meshView: TetrahedralMeshView, shapeModelTransformationView: ShapeModelTransformationView)
+case class MoMoViewControls private[ui] (meshView: VertexColorMeshView, shapeModelTransformationView: ShapeModelTransformationView)
+
 
 case class Group(override protected[api] val peer: GroupNode) extends ObjectView {
 
@@ -904,6 +906,7 @@ object ShapeModelTransformation {
     ShapeModelTransformation(poseTransformation, DiscreteLowRankGpPointTransformation(gp))
   }
 }
+
 
 case class ShapeModelTransformationView private[ui] (override protected[api] val peer: ShapeModelTransformationsNode) extends ObjectView {
 

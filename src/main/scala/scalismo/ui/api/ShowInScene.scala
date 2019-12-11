@@ -17,12 +17,14 @@
 
 package scalismo.ui.api
 
+import scalismo.color.{RGB, RGBA}
 import scalismo.common._
-import scalismo.geometry.{ EuclideanVector, Landmark, Point, _3D }
+import scalismo.faces.momo.MoMo
+import scalismo.geometry.{EuclideanVector, Landmark, Point, _3D}
 import scalismo.image.DiscreteScalarImage
 import scalismo.mesh._
 import scalismo.registration.RigidTransformation
-import scalismo.statisticalmodel.{ DiscreteLowRankGaussianProcess, LowRankGaussianProcess, StatisticalMeshModel, StatisticalVolumeMeshModel }
+import scalismo.statisticalmodel.{DiscreteLowRankGaussianProcess, LowRankGaussianProcess, StatisticalMeshModel, StatisticalVolumeMeshModel}
 import scalismo.ui.model._
 
 import scala.annotation.implicitNotFound
@@ -208,11 +210,33 @@ object ShowInScene extends LowPriorityImplicits {
 
     override def showInScene(model: StatisticalVolumeMeshModel, name: String, group: Group): View = {
 
-      val shapeModelTransform = ShapeModelTransformation(PointTransformation.RigidIdentity, DiscreteLowRankGpPointTransformation(model.gp))
+      val mygp = model.gp
+      val dt = DiscreteLowRankGpPointTransformation(mygp)
+      val shapeModelTransform = ShapeModelTransformation(PointTransformation.RigidIdentity, dt)
       val smV = CreateShapeModelTransformation.showInScene(shapeModelTransform, name, group)
       val tmV = ShowTetrahedralMesh.showInScene(model.referenceVolumeMesh, name, group)
       StatisticalVolumeMeshModelViewControls(tmV, smV)
 
+    }
+  }
+
+  implicit object ShowInSceneMoMo extends ShowInScene[MoMo] {
+    type View = MoMoViewControls
+
+    override def showInScene(model: MoMo, name: String, group: Group): View = {
+
+      val momoGP: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], Point[_3D]] = model.neutralModel.shape.gpModel
+
+      val gp: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], EuclideanVector[_3D]] =
+        new DiscreteLowRankGaussianProcess(momoGP.domain, momoGP.meanVector, momoGP.variance, momoGP.basisMatrix)
+
+      val shapeModelTransform = ShapeModelTransformation(PointTransformation.RigidIdentity, gp)
+      val smV = CreateShapeModelTransformation.showInScene(shapeModelTransform, name, group)
+      val vcol = model.neutralModel.color.mean.data.seq.map(RGBA(_))
+      val col: SurfacePointProperty[RGBA] = SurfacePointProperty(model.referenceMesh.triangulation, vcol)
+      val referenceColor = VertexColorMesh3D(model.referenceMesh, col)
+      val tmV = ShowVertexColorMesh.showInScene(referenceColor, name, group)
+      MoMoViewControls(tmV, smV)
     }
   }
 
