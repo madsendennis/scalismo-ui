@@ -18,7 +18,7 @@
 package scalismo.ui.model.capabilities
 
 import scalismo.ui.event.Event
-import scalismo.ui.model.{ GenericTransformationsNode, PointTransformation, ShapeModelTransformationsNode }
+import scalismo.ui.model.{GenericTransformationsNode, MoMoTransformationsNode, PointTransformation, ShapeModelTransformationsNode}
 
 object Transformable {
 
@@ -33,11 +33,21 @@ object Transformable {
 trait Transformable[T] extends RenderableSceneNode with Grouped {
   def source: T // the untransformed T
 
+  println(s"Transformable [T]")
+
   private def genericTransformationsNode: GenericTransformationsNode = group.genericTransformations
 
   private def shapeModelTransformationsNode: ShapeModelTransformationsNode = group.shapeModelTransformations
 
+  private def momoTransformationsNode: MoMoTransformationsNode = group.momoTransformations
+
   private def combinedTransform = shapeModelTransformationsNode.combinedTransformation.map(smT => genericTransformationsNode.combinedTransformation compose smT) getOrElse {
+    println("combined transform function stuff")
+    genericTransformationsNode.combinedTransformation
+  }
+
+  private def combinedTransformMoMo = momoTransformationsNode.combinedTransformation.map(smT => genericTransformationsNode.combinedTransformation compose smT) getOrElse {
+    println("combined transform function stuff")
     genericTransformationsNode.combinedTransformation
   }
 
@@ -48,15 +58,25 @@ trait Transformable[T] extends RenderableSceneNode with Grouped {
   def transform(untransformed: T, transformation: PointTransformation): T
 
   def updateTransformedSource(): Unit = {
+    println("Update transformed source")
     _transformedSource = transform(source, combinedTransform)
+    publishEvent(Transformable.event.GeometryChanged(this))
+  }
+
+  def updateTransformedSourceMoMo(): Unit = {
+    println("Update transformed source MoMo")
+    _transformedSource = transform(source, combinedTransformMoMo)
     publishEvent(Transformable.event.GeometryChanged(this))
   }
 
   listenTo(genericTransformationsNode)
   listenTo(shapeModelTransformationsNode)
+  listenTo(momoTransformationsNode)
+
 
   reactions += {
     case GenericTransformationsNode.event.TransformationsChanged(_) => updateTransformedSource()
     case ShapeModelTransformationsNode.event.ShapeModelTransformationsChanged(_) => updateTransformedSource()
+    case MoMoTransformationsNode.event.MoMoTransformationsChanged(_) => updateTransformedSourceMoMo()
   }
 }

@@ -85,6 +85,11 @@ object FileIoMetadata {
     override val fileExtensions = List("h5")
   }
 
+  val MoMo: FileIoMetadata = new FileIoMetadata {
+    override val description = "MoMo"
+    override val fileExtensions = List("h5")
+  }
+
   val Image: FileIoMetadata = new FileIoMetadata {
     override val description = "3D Image"
     override val fileExtensions = List("nii", "vtk")

@@ -709,8 +709,9 @@ object ImageView {
 // Note this class does not extend Object view, as there is not really a corresponding node to this concept
 case class StatisticalMeshModelViewControls private[ui] (meshView: TriangleMeshView, shapeModelTransformationView: ShapeModelTransformationView)
 case class StatisticalVolumeMeshModelViewControls private[ui] (meshView: TetrahedralMeshView, shapeModelTransformationView: ShapeModelTransformationView)
-case class MoMoViewControls private[ui] (meshView: VertexColorMeshView, shapeModelTransformationView: ShapeModelTransformationView)
+case class MoMoViewControls private[ui] (meshView: VertexColorMeshView, moMoTransformationView: MoMoTransformationView)
 
+case class StatisticalColorMeshModelViewControls private[ui] (meshView: VertexColorMeshView, shapeModelTransformationView: ShapeModelTransformationView)
 
 case class Group(override protected[api] val peer: GroupNode) extends ObjectView {
 
@@ -907,6 +908,13 @@ object ShapeModelTransformation {
   }
 }
 
+case class MoMoTransformation(poseTransformation: RigidTransformation[_3D], shapeTransformation: DiscreteLowRankGpPointTransformation, colorTransformation: DiscreteLowRankGpPointTransformation)
+
+object MoMoTransformation {
+  def apply(poseTransformation: RigidTransformation[_3D], gpShape: DiscreteLowRankGaussianProcess[_3D, DiscreteDomain[_3D], EuclideanVector[_3D]], gpColor: DiscreteLowRankGaussianProcess[_3D, DiscreteDomain[_3D], EuclideanVector[_3D]]): MoMoTransformation = {
+    MoMoTransformation(poseTransformation, DiscreteLowRankGpPointTransformation(gpShape), DiscreteLowRankGpPointTransformation(gpColor))
+  }
+}
 
 case class ShapeModelTransformationView private[ui] (override protected[api] val peer: ShapeModelTransformationsNode) extends ObjectView {
 
@@ -956,5 +964,59 @@ object ShapeModelTransformationView {
       }
     }
   }
+
+}
+
+object MoMoTransformationView {
+
+  implicit object FindInSceneShapeModelTransformation extends FindInScene[MoMoTransformationView] {
+    override def createView(s: SceneNode): Option[MoMoTransformationView] = {
+
+      s match {
+        case value: MoMoTransformationsNode => Some(MoMoTransformationView(value))
+        case _ => None
+      }
+    }
+  }
+
+  implicit object CallbackShapeModelTransformation extends HandleCallback[MoMoTransformationView] {
+
+    override def registerOnAdd[R](g: Group, f: MoMoTransformationView => R): Unit = {
+      g.peer.listenTo(g.peer.momoTransformations)
+      g.peer.reactions += {
+        case ChildAdded(_, _: TransformationNode[_]) => f(MoMoTransformationView(g.peer.momoTransformations))
+      }
+    }
+
+    override def registerOnRemove[R](g: Group, f: MoMoTransformationView => R): Unit = {
+      g.peer.listenTo(g.peer.momoTransformations)
+      g.peer.reactions += {
+        case ChildRemoved(_, _: TransformationNode[_]) => f(MoMoTransformationView(g.peer.momoTransformations))
+      }
+    }
+  }
+
+}
+
+case class MoMoTransformationView private[ui] (override protected[api] val peer: MoMoTransformationsNode) extends ObjectView {
+
+  override type PeerType = MoMoTransformationsNode
+
+  def shapeTransformationView: DiscreteLowRankGPTransformationView = peer.gaussianShapeProcessTransformation.map(DiscreteLowRankGPTransformationView(_)) match {
+    case Some(sv) => sv
+    case None => throw new Exception("There is no Gaussian Process (shape) transformation associated with this MoMoTransformationView.")
+  }
+
+  def colorTransformationView: DiscreteLowRankGPTransformationView = peer.gaussianColorProcessTransformation.map(DiscreteLowRankGPTransformationView(_)) match {
+    case Some(sv) => sv
+    case None => throw new Exception("There is no Gaussian Process (color) transformation associated with this MoMoTransformationView.")
+  }
+
+  def poseTransformationView: RigidTransformationView = peer.poseTransformation.map(RigidTransformationView(_)) match {
+    case Some(sv) => sv
+    case None => throw new Exception("There is no rigid (pose) transformation associated with this MoMoTransformationView.")
+  }
+
+  def hasShapeTransformation: Boolean = peer.gaussianShapeProcessTransformation.isDefined
 
 }

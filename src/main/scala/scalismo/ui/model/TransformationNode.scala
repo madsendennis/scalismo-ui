@@ -54,6 +54,16 @@ object VolumeShapeModelTransformationsNode {
 
 }
 
+object MoMoTransformationsNode {
+
+  object event {
+
+    case class MoMoTransformationsChanged(source: MoMoTransformationsNode) extends Event
+
+  }
+
+}
+
 trait TransformationCollectionNode extends SceneNodeCollection[TransformationNode[_]] {
 
   val parent: GroupNode
@@ -75,6 +85,7 @@ class GenericTransformationsNode(override val parent: GroupNode) extends Transfo
   }
 
   def combinedTransformation: PointTransformation = {
+    println("Unpacking combined transformation!")
     val transforms = children.map(_.transformation.asInstanceOf[PointTransformation])
     transforms.foldLeft(PointTransformation.Identity: PointTransformation) { case (first, second) => first compose second }
   }
@@ -147,6 +158,7 @@ class ShapeModelTransformationsNode(override val parent: GroupNode) extends Tran
   }
 
   def combinedTransformation: Option[PointTransformation] = {
+    println("Unpacking combined transformation ShapeModel!")
     gaussianProcessTransformation match {
       case Some(shapeTrans) => poseTransformation match {
         case Some(poseTrans) => Some(poseTrans.transformation compose shapeTrans.transformation)
@@ -222,6 +234,7 @@ class VolumeShapeModelTransformationsNode(override val parent: GroupNode) extend
   }
 
   def combinedTransformation: Option[PointTransformation] = {
+    println("Unpacking combined transformation Volume!")
     gaussianProcessTransformation match {
       case Some(shapeTrans) => poseTransformation match {
         case Some(poseTrans) => Some(poseTrans.transformation compose shapeTrans.transformation)
@@ -243,6 +256,104 @@ class VolumeShapeModelTransformationsNode(override val parent: GroupNode) extend
     case TransformationNode.event.TransformationChanged(_) =>
       publishEvent(VolumeShapeModelTransformationsNode.event.VolumeShapeModelTransformationsChanged(this))
   }
+}
+
+class MoMoTransformationsNode(override val parent: GroupNode) extends TransformationCollectionNode with Removeable {
+  override val name: String = "MoMo transformations"
+  println("MoMo transformations")
+
+  private def isPoseDefined: Boolean = {
+    children.exists(tr => tr.transformation.isInstanceOf[RigidTransformation[_3D]])
+  }
+
+  private def isShapeDefined: Boolean = {
+    children.exists(tr => tr.transformation.isInstanceOf[DiscreteLowRankGpPointTransformation] && tr.name == "MoMoShape")
+  }
+
+  private def isColorDefined: Boolean = {
+    children.exists(tr => tr.transformation.isInstanceOf[DiscreteLowRankGpPointTransformation] && tr.name == "MoMoColor")
+  }
+
+  def addPoseTransformation(transformation: RigidTransformation[_3D], name: String = "pose"): Try[MoMoTransformationComponentNode[RigidTransformation[_3D]]] = {
+    println("Adding MOMO pose transformation")
+    if (isPoseDefined) {
+      Failure(new Exception("The group already contains a rigid transformation as part of the MoMo Transformation. Remove existing first"))
+    } else {
+      val node = MoMoTransformationComponentNode(this, transformation, name)
+      add(node)
+      Success(node)
+    }
+  }
+
+  def addShapeGaussianProcessTransformation(transformation: DiscreteLowRankGpPointTransformation, name: String = "MoMoShape"): Try[MoMoTransformationComponentNode[DiscreteLowRankGpPointTransformation]] = {
+    println("Adding MOMO shape transformation")
+    if (isShapeDefined) {
+      Failure(new Exception("The group already contains a Shape GP transformation as part of the MoMo Transformation. Remove existing first"))
+    } else {
+      val node = MoMoTransformationComponentNode(this, transformation, name)
+      add(node)
+      Success(node)
+    }
+  }
+
+  def addColorGaussianProcessTransformation(transformation: DiscreteLowRankGpPointTransformation, name: String = "MoMoColor"): Try[MoMoTransformationComponentNode[DiscreteLowRankGpPointTransformation]] = {
+    println("Adding MOMO color transformation")
+    if (isColorDefined) {
+      Failure(new Exception("The group already contains a Color GP transformation as part of the MoMo Transformation. Remove existing first"))
+    } else {
+      val node = MoMoTransformationComponentNode(this, transformation, name)
+      add(node)
+      Success(node)
+    }
+  }
+
+  def poseTransformation: Option[MoMoTransformationComponentNode[RigidTransformation[_3D]]] =
+    children.find(_.transformation.isInstanceOf[RigidTransformation[_3D]]).map(_.asInstanceOf[MoMoTransformationComponentNode[RigidTransformation[_3D]]])
+
+  def gaussianShapeProcessTransformation: Option[MoMoTransformationComponentNode[DiscreteLowRankGpPointTransformation]] =
+    children.find(_.transformation.isInstanceOf[DiscreteLowRankGpPointTransformation]).map(_.asInstanceOf[MoMoTransformationComponentNode[DiscreteLowRankGpPointTransformation]])
+
+  def gaussianColorProcessTransformation: Option[MoMoTransformationComponentNode[DiscreteLowRankGpPointTransformation]] =
+    children.find(_.transformation.isInstanceOf[DiscreteLowRankGpPointTransformation]).map(_.asInstanceOf[MoMoTransformationComponentNode[DiscreteLowRankGpPointTransformation]])
+
+  protected def add(child: MoMoTransformationComponentNode[_]): Unit = {
+    listenTo(child)
+    super.addToFront(child)
+    publishEvent(MoMoTransformationsNode.event.MoMoTransformationsChanged(this))
+  }
+
+  override def remove(child: TransformationNode[_]): Unit = {
+    deafTo(child)
+    super.remove(child)
+    publishEvent(MoMoTransformationsNode.event.MoMoTransformationsChanged(this))
+  }
+
+  def combinedTransformation: Option[PointTransformation] = {
+    println("Unpacking combined transformation MOMO!")
+    gaussianShapeProcessTransformation match {
+      case Some(shapeTrans) => poseTransformation match {
+        case Some(poseTrans) => Some(poseTrans.transformation compose shapeTrans.transformation)
+        case None => Some(shapeTrans.transformation)
+      }
+      case None => poseTransformation match {
+        case Some(poseTrans) => Some(poseTrans.transformation)
+        case None => None
+      }
+    }
+  }
+
+  // in this case remove does not really remove the node from the parent group, but just empties its children
+  def remove(): Unit = {
+    children.foreach(_.remove())
+  }
+
+  reactions += {
+    case TransformationNode.event.TransformationChanged(_) =>
+      publishEvent(MoMoTransformationsNode.event.MoMoTransformationsChanged(this))
+  }
+
+  println(s"Name: ${name}")
+
 }
 
 class ShapeModelTransformationComponentNode[T <: PointTransformation] private (override val parent: ShapeModelTransformationsNode, initialTransformation: T, override val name: String)
@@ -269,6 +380,19 @@ object VolumeShapeModelTransformationComponentNode {
   def apply(parent: VolumeShapeModelTransformationsNode, initialTransformation: RigidTransformation[_3D], name: String) = new VolumeShapeModelTransformationComponentNode(parent, initialTransformation, name)
 
   def apply(parent: VolumeShapeModelTransformationsNode, initialTransformation: DiscreteLowRankGpPointTransformation, name: String) = new VolumeShapeModelTransformationComponentNode(parent, initialTransformation, name)
+}
+
+class MoMoTransformationComponentNode[T <: PointTransformation] private (override val parent: MoMoTransformationsNode, initialTransformation: T, override val name: String)
+  extends TransformationNode[T](parent, initialTransformation, name) {
+  override def remove(): Unit = {
+    parent.remove(this)
+  }
+}
+
+object MoMoTransformationComponentNode {
+  def apply(parent: MoMoTransformationsNode, initialTransformation: RigidTransformation[_3D], name: String) = new MoMoTransformationComponentNode(parent, initialTransformation, name)
+
+  def apply(parent: MoMoTransformationsNode, initialTransformation: DiscreteLowRankGpPointTransformation, name: String) = new MoMoTransformationComponentNode(parent, initialTransformation, name)
 }
 
 object TransformationNode {

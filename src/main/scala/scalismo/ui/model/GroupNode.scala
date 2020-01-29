@@ -17,7 +17,12 @@
 
 package scalismo.ui.model
 
-import scalismo.statisticalmodel.{ StatisticalMeshModel, StatisticalVolumeMeshModel }
+import scalismo.color.RGB
+import scalismo.common.UnstructuredPointsDomain
+import scalismo.faces.momo.MoMo
+import scalismo.geometry.{ EuclideanVector, Point, _3D }
+import scalismo.statisticalmodel.{ DiscreteLowRankGaussianProcess, StatisticalMeshModel, StatisticalVolumeMeshModel }
+import scalismo.ui.api.ShapeModelTransformation
 import scalismo.ui.event.ScalismoPublisher
 import scalismo.ui.model.Scene.event.SceneChanged
 import scalismo.ui.model.capabilities.{ Removeable, Renameable }
@@ -50,6 +55,7 @@ class GroupNode(override val parent: GroupsNode, initialName: String, initallyHi
   val genericTransformations = new GenericTransformationsNode(this)
   val shapeModelTransformations = new ShapeModelTransformationsNode(this)
   val volumeShapeModelTransformations = new VolumeShapeModelTransformationsNode(this)
+  val momoTransformations = new MoMoTransformationsNode(this)
 
   val landmarks = new LandmarksNode(this)
   val triangleMeshes = new TriangleMeshesNode(this)
@@ -67,6 +73,7 @@ class GroupNode(override val parent: GroupsNode, initialName: String, initallyHi
     genericTransformations,
     shapeModelTransformations,
     volumeShapeModelTransformations,
+    momoTransformations,
     landmarks,
     triangleMeshes,
     colorMeshes,
@@ -101,6 +108,26 @@ class GroupNode(override val parent: GroupsNode, initialName: String, initallyHi
     tetrahedralMeshes.add(model.referenceVolumeMesh, initialName)
     volumeShapeModelTransformations.addPoseTransformation(PointTransformation.RigidIdentity)
     volumeShapeModelTransformations.addGaussianProcessTransformation(DiscreteLowRankGpPointTransformation(model.gp))
+
+  }
+
+  def addMoMo(model: MoMo, initialName: String): Unit = {
+
+    triangleMeshes.add(model.referenceMesh, initialName)
+
+    val momoGPshape: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], Point[_3D]] = model.neutralModel.shape.gpModel
+    val momoGPcolor: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], RGB] = model.neutralModel.color.gpModel
+
+    val gpShape: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], EuclideanVector[_3D]] =
+      new DiscreteLowRankGaussianProcess(momoGPshape.domain, momoGPshape.meanVector, momoGPshape.variance, momoGPshape.basisMatrix)
+
+    //    val gpColor: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], EuclideanVector[_3D]] =
+    //      new DiscreteLowRankGaussianProcess(momoGPcolor.domain, momoGPcolor.meanVector, momoGPcolor.variance, momoGPcolor.basisMatrix)
+
+    //    val shapeModelTransform = ShapeModelTransformation(PointTransformation.RigidIdentity, gpShape)
+
+    momoTransformations.addPoseTransformation(PointTransformation.RigidIdentity)
+    momoTransformations.addShapeGaussianProcessTransformation(DiscreteLowRankGpPointTransformation(gpShape))
 
   }
 

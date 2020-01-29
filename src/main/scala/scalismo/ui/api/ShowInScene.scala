@@ -17,14 +17,14 @@
 
 package scalismo.ui.api
 
-import scalismo.color.{RGB, RGBA}
+import scalismo.color.{ RGB, RGBA }
 import scalismo.common._
 import scalismo.faces.momo.MoMo
-import scalismo.geometry.{EuclideanVector, Landmark, Point, _3D}
+import scalismo.geometry.{ EuclideanVector, Landmark, Point, _3D }
 import scalismo.image.DiscreteScalarImage
 import scalismo.mesh._
 import scalismo.registration.RigidTransformation
-import scalismo.statisticalmodel.{DiscreteLowRankGaussianProcess, LowRankGaussianProcess, StatisticalMeshModel, StatisticalVolumeMeshModel}
+import scalismo.statisticalmodel.{ DiscreteLowRankGaussianProcess, LowRankGaussianProcess, StatisticalMeshModel, StatisticalVolumeMeshModel }
 import scalismo.ui.model._
 
 import scala.annotation.implicitNotFound
@@ -77,6 +77,17 @@ trait LowPriorityImplicits {
 object ShowInScene extends LowPriorityImplicits {
 
   implicit def ShowVertexColorMesh: ShowInScene[VertexColorMesh3D] {
+    type View = VertexColorMeshView
+  } = new ShowInScene[VertexColorMesh3D] {
+    override type View = VertexColorMeshView
+
+    override def showInScene(mesh: VertexColorMesh3D, name: String, group: Group): VertexColorMeshView = {
+
+      VertexColorMeshView(group.peer.colorMeshes.add(mesh, name))
+    }
+  }
+
+  implicit def ShowMoMo: ShowInScene[VertexColorMesh3D] {
     type View = VertexColorMeshView
   } = new ShowInScene[VertexColorMesh3D] {
     override type View = VertexColorMeshView
@@ -222,21 +233,27 @@ object ShowInScene extends LowPriorityImplicits {
 
   implicit object ShowInSceneMoMo extends ShowInScene[MoMo] {
     type View = MoMoViewControls
-
+    println("SHOW IN SCENE MOMO")
     override def showInScene(model: MoMo, name: String, group: Group): View = {
 
-      val momoGP: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], Point[_3D]] = model.neutralModel.shape.gpModel
+      val momoGPshape: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], Point[_3D]] = model.neutralModel.shape.gpModel
+      val momoGPcolor: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], RGB] = model.neutralModel.color.gpModel
 
-      val gp: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], EuclideanVector[_3D]] =
-        new DiscreteLowRankGaussianProcess(momoGP.domain, momoGP.meanVector, momoGP.variance, momoGP.basisMatrix)
+      val gpShape: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], EuclideanVector[_3D]] =
+        new DiscreteLowRankGaussianProcess(momoGPshape.domain, momoGPshape.meanVector, momoGPshape.variance, momoGPshape.basisMatrix)
 
-      val shapeModelTransform = ShapeModelTransformation(PointTransformation.RigidIdentity, gp)
-      val smV = CreateShapeModelTransformation.showInScene(shapeModelTransform, name, group)
+      val gpColor: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], EuclideanVector[_3D]] =
+        new DiscreteLowRankGaussianProcess(momoGPcolor.domain, momoGPcolor.meanVector, momoGPcolor.variance, momoGPcolor.basisMatrix)
+
+      val momoTransform = MoMoTransformation(PointTransformation.RigidIdentity, gpShape, gpColor)
+
+      val mmV = CreateMoMoTransformation.showInScene(momoTransform, name, group)
+
       val vcol = model.neutralModel.color.mean.data.seq.map(RGBA(_))
       val col: SurfacePointProperty[RGBA] = SurfacePointProperty(model.referenceMesh.triangulation, vcol)
       val referenceColor = VertexColorMesh3D(model.referenceMesh, col)
-      val tmV = ShowVertexColorMesh.showInScene(referenceColor, name, group)
-      MoMoViewControls(tmV, smV)
+      val tmV = ShowMoMo.showInScene(referenceColor, name, group)
+      MoMoViewControls(tmV, mmV)
     }
   }
 
@@ -291,6 +308,20 @@ object ShowInScene extends LowPriorityImplicits {
         _ <- group.peer.shapeModelTransformations.addPoseTransformation(transform.poseTransformation)
         _ <- group.peer.shapeModelTransformations.addGaussianProcessTransformation(transform.shapeTransformation)
       } yield ShapeModelTransformationView(group.peer.shapeModelTransformations)
+      t.get
+    }
+  }
+
+  implicit object CreateMoMoTransformation extends ShowInScene[MoMoTransformation] {
+    override type View = MoMoTransformationView
+
+    override def showInScene(transform: MoMoTransformation, name: String, group: Group): View = {
+      println("Show MoMo transformations")
+      val t = for {
+        _ <- group.peer.momoTransformations.addPoseTransformation(transform.poseTransformation)
+        _ <- group.peer.momoTransformations.addShapeGaussianProcessTransformation(transform.shapeTransformation)
+        //        _ <- group.peer.momoTransformations.addColorGaussianProcessTransformation(transform.colorTransformation)
+      } yield MoMoTransformationView(group.peer.momoTransformations)
       t.get
     }
   }

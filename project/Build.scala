@@ -64,7 +64,7 @@ object ScalismoUiBuild extends Build {
 
   // Sub-project specific dependencies
   val commonDeps = Seq(
-    scalismo,
+//    scalismo,
     scalismoNative,
     scalatest,
     swingPlus,
