@@ -87,17 +87,6 @@ object ShowInScene extends LowPriorityImplicits {
     }
   }
 
-  implicit def ShowMoMo: ShowInScene[VertexColorMesh3D] {
-    type View = VertexColorMeshView
-  } = new ShowInScene[VertexColorMesh3D] {
-    override type View = VertexColorMeshView
-
-    override def showInScene(mesh: VertexColorMesh3D, name: String, group: Group): VertexColorMeshView = {
-
-      VertexColorMeshView(group.peer.colorMeshes.add(mesh, name))
-    }
-  }
-
   implicit def ShowTetrahedralMesh: ShowInScene[TetrahedralMesh[_3D]] {
     type View = TetrahedralMeshView
   } = new ShowInScene[TetrahedralMesh[_3D]] {
@@ -245,14 +234,14 @@ object ShowInScene extends LowPriorityImplicits {
       val gpColor: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], EuclideanVector[_3D]] =
         new DiscreteLowRankGaussianProcess(momoGPcolor.domain, momoGPcolor.meanVector, momoGPcolor.variance, momoGPcolor.basisMatrix)
 
-      val momoTransform = MoMoTransformation(PointTransformation.RigidIdentity, gpShape, gpColor)
+      val momoTransform = MoMoTransformation(PointTransformation.RigidIdentity, gpShape, gpShape)
 
       val mmV = CreateMoMoTransformation.showInScene(momoTransform, name, group)
 
       val vcol = model.neutralModel.color.mean.data.seq.map(RGBA(_))
       val col: SurfacePointProperty[RGBA] = SurfacePointProperty(model.referenceMesh.triangulation, vcol)
       val referenceColor = VertexColorMesh3D(model.referenceMesh, col)
-      val tmV = ShowMoMo.showInScene(referenceColor, name, group)
+      val tmV = ShowVertexColorMesh.showInScene(referenceColor, name, group)
       MoMoViewControls(tmV, mmV)
     }
   }
@@ -319,8 +308,8 @@ object ShowInScene extends LowPriorityImplicits {
       println("Show MoMo transformations")
       val t = for {
         _ <- group.peer.momoTransformations.addPoseTransformation(transform.poseTransformation)
-        _ <- group.peer.momoTransformations.addShapeGaussianProcessTransformation(transform.shapeTransformation)
-        //        _ <- group.peer.momoTransformations.addColorGaussianProcessTransformation(transform.colorTransformation)
+//        _ <- group.peer.momoTransformations.addShapeGaussianProcessTransformation(transform.shapeTransformation)
+        _ <- group.peer.momoTransformations.addColorGaussianProcessTransformation(transform.colorTransformation)
       } yield MoMoTransformationView(group.peer.momoTransformations)
       t.get
     }

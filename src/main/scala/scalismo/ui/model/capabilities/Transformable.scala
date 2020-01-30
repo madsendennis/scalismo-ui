@@ -41,27 +41,27 @@ trait Transformable[T] extends RenderableSceneNode with Grouped {
 
   private def momoTransformationsNode: MoMoTransformationsNode = group.momoTransformations
 
-  private def combinedTransform = shapeModelTransformationsNode.combinedTransformation.map(smT => genericTransformationsNode.combinedTransformation compose smT) getOrElse {
-    println("combined transform function stuff")
-    genericTransformationsNode.combinedTransformation
-  }
+//  private def combinedTransform = shapeModelTransformationsNode.combinedTransformation.map(smT => genericTransformationsNode.combinedTransformation compose smT) getOrElse {
+//    println("combined transform function stuff")
+//    genericTransformationsNode.combinedTransformation
+//  }
 
   private def combinedTransformMoMo = momoTransformationsNode.combinedTransformation.map(smT => genericTransformationsNode.combinedTransformation compose smT) getOrElse {
     println("combined transform function stuff")
     genericTransformationsNode.combinedTransformation
   }
 
-  private var _transformedSource = transform(source, combinedTransform)
+  private var _transformedSource = transform(source, combinedTransformMoMo)
 
   def transformedSource: T = _transformedSource
 
   def transform(untransformed: T, transformation: PointTransformation): T
 
-  def updateTransformedSource(): Unit = {
-    println("Update transformed source")
-    _transformedSource = transform(source, combinedTransform)
-    publishEvent(Transformable.event.GeometryChanged(this))
-  }
+//  def updateTransformedSource(): Unit = {
+//    println("Update transformed source")
+//    _transformedSource = transform(source, combinedTransform)
+//    publishEvent(Transformable.event.GeometryChanged(this))
+//  }
 
   def updateTransformedSourceMoMo(): Unit = {
     println("Update transformed source MoMo")
@@ -70,13 +70,13 @@ trait Transformable[T] extends RenderableSceneNode with Grouped {
   }
 
   listenTo(genericTransformationsNode)
-  listenTo(shapeModelTransformationsNode)
+//  listenTo(shapeModelTransformationsNode)
   listenTo(momoTransformationsNode)
 
 
   reactions += {
-    case GenericTransformationsNode.event.TransformationsChanged(_) => updateTransformedSource()
-    case ShapeModelTransformationsNode.event.ShapeModelTransformationsChanged(_) => updateTransformedSource()
+    case GenericTransformationsNode.event.TransformationsChanged(_) => updateTransformedSourceMoMo()
+//    case ShapeModelTransformationsNode.event.ShapeModelTransformationsChanged(_) => updateTransformedSource()
     case MoMoTransformationsNode.event.MoMoTransformationsChanged(_) => updateTransformedSourceMoMo()
   }
 }

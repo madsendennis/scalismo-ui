@@ -311,10 +311,10 @@ class MoMoTransformationsNode(override val parent: GroupNode) extends Transforma
     children.find(_.transformation.isInstanceOf[RigidTransformation[_3D]]).map(_.asInstanceOf[MoMoTransformationComponentNode[RigidTransformation[_3D]]])
 
   def gaussianShapeProcessTransformation: Option[MoMoTransformationComponentNode[DiscreteLowRankGpPointTransformation]] =
-    children.find(_.transformation.isInstanceOf[DiscreteLowRankGpPointTransformation]).map(_.asInstanceOf[MoMoTransformationComponentNode[DiscreteLowRankGpPointTransformation]])
+    children.find(tr => tr.transformation.isInstanceOf[DiscreteLowRankGpPointTransformation] && tr.name == "MoMoShape").map(_.asInstanceOf[MoMoTransformationComponentNode[DiscreteLowRankGpPointTransformation]])
 
   def gaussianColorProcessTransformation: Option[MoMoTransformationComponentNode[DiscreteLowRankGpPointTransformation]] =
-    children.find(_.transformation.isInstanceOf[DiscreteLowRankGpPointTransformation]).map(_.asInstanceOf[MoMoTransformationComponentNode[DiscreteLowRankGpPointTransformation]])
+    children.find(tr => tr.transformation.isInstanceOf[DiscreteLowRankGpPointTransformation] && tr.name == "MoMoColor").map(_.asInstanceOf[MoMoTransformationComponentNode[DiscreteLowRankGpPointTransformation]])
 
   protected def add(child: MoMoTransformationComponentNode[_]): Unit = {
     listenTo(child)
@@ -330,10 +330,10 @@ class MoMoTransformationsNode(override val parent: GroupNode) extends Transforma
 
   def combinedTransformation: Option[PointTransformation] = {
     println("Unpacking combined transformation MOMO!")
-    gaussianShapeProcessTransformation match {
-      case Some(shapeTrans) => poseTransformation match {
-        case Some(poseTrans) => Some(poseTrans.transformation compose shapeTrans.transformation)
-        case None => Some(shapeTrans.transformation)
+    gaussianColorProcessTransformation match {
+      case Some(colorTrans) => poseTransformation match {
+        case Some(poseTrans) => Some(poseTrans.transformation compose colorTrans.transformation)
+        case None => Some(colorTrans.transformation)
       }
       case None => poseTransformation match {
         case Some(poseTrans) => Some(poseTrans.transformation)
