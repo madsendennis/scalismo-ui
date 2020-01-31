@@ -17,19 +17,19 @@
 
 package scalismo.ui.view.properties
 
-import java.awt.event.{ MouseAdapter, MouseEvent }
+import java.awt.event.{MouseAdapter, MouseEvent}
 
 import breeze.linalg.DenseVector
 import breeze.stats.distributions.Gaussian
 import javax.swing.JSlider
-import scalismo.ui.model.{ LowRankGpPointTransformation, PointTransformation, SceneNode, TransformationNode }
+import scalismo.ui.model.{LowRankGpColorTransformation, LowRankGpPointTransformation, PointTransformation, SceneNode, TransformationNode}
 import scalismo.ui.view.ScalismoFrame
 import scalismo.ui.view.util.ScalableUI.implicits.scalableInt
 
 import scala.collection.mutable
-import scala.swing.GridBagPanel.{ Anchor, Fill }
+import scala.swing.GridBagPanel.{Anchor, Fill}
 import scala.swing._
-import scala.swing.event.{ ButtonClicked, ValueChanged }
+import scala.swing.event.{ButtonClicked, ValueChanged}
 
 object GaussianProcessCoefficientsPanel extends PropertyPanel.Factory {
   override def create(frame: ScalismoFrame): PropertyPanel = new GaussianProcessCoefficientsPanel(frame)
@@ -131,7 +131,7 @@ class GaussianProcessCoefficientsPanel(override val frame: ScalismoFrame) extend
     }
   }
 
-  private var node: Option[TransformationNode[LowRankGpPointTransformation]] = None
+  private var node: Option[TransformationNode[LowRankGpColorTransformation]] = None
 
   def labelFormat(value: Double) = f"$value%1.1f"
 
@@ -205,7 +205,10 @@ class GaussianProcessCoefficientsPanel(override val frame: ScalismoFrame) extend
   override def setNodes(nodes: List[SceneNode]): Boolean = {
     cleanup()
     // we have to account for type erasure, that's why we need the collect
-    singleMatch[TransformationNode[_ <: PointTransformation]](nodes).collect { case tn if tn.transformation.isInstanceOf[LowRankGpPointTransformation] => tn.asInstanceOf[TransformationNode[LowRankGpPointTransformation]] } match {
+    singleMatch[TransformationNode[_ <: PointTransformation]](nodes).collect {
+      case tn
+        if tn.transformation.isInstanceOf[LowRankGpColorTransformation] => tn.asInstanceOf[TransformationNode[LowRankGpColorTransformation]]
+    } match {
       case None => false
       case Some(tn) =>
         node = Some(tn)

@@ -821,6 +821,72 @@ object RigidTransformationView {
 
 }
 
+case class DiscreteLowRankGPColorTransformationView private[ui] (override protected[api] val peer: TransformationNode[DiscreteLowRankGpColorTransformation]) extends ObjectView {
+
+  override type PeerType = TransformationNode[DiscreteLowRankGpColorTransformation]
+
+  def coefficients: DenseVector[Double] = peer.transformation.coefficients
+
+  def coefficients_=(coefficients: DenseVector[Double]): Unit = {
+    {
+      peer.transformation = peer.transformation.copy(coefficients)
+    }
+  }
+
+  val transformation: DiscreteLowRankGpColorTransformation = peer.transformation
+
+  def discreteLowRankGaussianProcess: DiscreteLowRankGaussianProcess[_3D, DiscreteDomain[_3D], EuclideanVector[_3D]] = peer.transformation.dgp
+
+  def discreteLowRankGaussianProcess_=(dgp: DiscreteLowRankGaussianProcess[_3D, DiscreteDomain[_3D], EuclideanVector[_3D]]): Unit = {
+    peer.transformation = DiscreteLowRankGpColorTransformation(dgp)
+  }
+}
+
+object DiscreteLowRankGPColorTransformationView {
+
+  implicit object FindInSceneDiscreteGPTransformation$ extends FindInScene[DiscreteLowRankGPColorTransformationView] {
+    override def createView(s: SceneNode): Option[DiscreteLowRankGPColorTransformationView] = {
+
+      // here we need a two step process due to type erasure to find the right type.
+      s match {
+        // filter out Rigid transformations that are part of a StatisticalShapeMoodelTransformation
+        case value: MoMoTransformationComponentNode[_] if value.transformation.isInstanceOf[DiscreteLowRankGpColorTransformation] => None
+        case value: TransformationNode[_] if value.transformation.isInstanceOf[DiscreteLowRankGpColorTransformation] =>
+          Some(DiscreteLowRankGPColorTransformationView(s.asInstanceOf[TransformationNode[DiscreteLowRankGpColorTransformation]]))
+        case _ => None
+      }
+    }
+  }
+
+  implicit object CallbackDiscreteGPTransformation extends HandleCallback[DiscreteLowRankGPColorTransformationView] {
+
+    override def registerOnAdd[R](g: Group, f: DiscreteLowRankGPColorTransformationView => R): Unit = {
+      g.peer.listenTo(g.peer.genericTransformations)
+      g.peer.reactions += {
+        case ChildAdded(_, newNode: TransformationNode[_]) =>
+
+          if (newNode.transformation.isInstanceOf[DiscreteLowRankGpColorTransformation]) {
+            val tmv = DiscreteLowRankGPColorTransformationView(newNode.asInstanceOf[TransformationNode[DiscreteLowRankGpColorTransformation]])
+            f(tmv)
+          }
+
+      }
+    }
+
+    override def registerOnRemove[R](g: Group, f: DiscreteLowRankGPColorTransformationView => R): Unit = {
+      g.peer.listenTo(g.peer.genericTransformations)
+      g.peer.reactions += {
+        case ChildRemoved(_, removedNode: TransformationNode[_]) =>
+          if (removedNode.transformation.isInstanceOf[DiscreteLowRankGpColorTransformation]) {
+            val tmv = DiscreteLowRankGPColorTransformationView(removedNode.asInstanceOf[TransformationNode[DiscreteLowRankGpColorTransformation]])
+            f(tmv)
+          }
+      }
+    }
+  }
+
+}
+
 case class DiscreteLowRankGPTransformationView private[ui] (override protected[api] val peer: TransformationNode[DiscreteLowRankGpPointTransformation]) extends ObjectView {
 
   override type PeerType = TransformationNode[DiscreteLowRankGpPointTransformation]
@@ -908,11 +974,11 @@ object ShapeModelTransformation {
   }
 }
 
-case class MoMoTransformation(poseTransformation: RigidTransformation[_3D], shapeTransformation: DiscreteLowRankGpPointTransformation, colorTransformation: DiscreteLowRankGpPointTransformation)
+case class MoMoTransformation(poseTransformation: RigidTransformation[_3D], shapeTransformation: DiscreteLowRankGpPointTransformation, colorTransformation: DiscreteLowRankGpColorTransformation)
 
 object MoMoTransformation {
   def apply(poseTransformation: RigidTransformation[_3D], gpShape: DiscreteLowRankGaussianProcess[_3D, DiscreteDomain[_3D], EuclideanVector[_3D]], gpColor: DiscreteLowRankGaussianProcess[_3D, DiscreteDomain[_3D], EuclideanVector[_3D]]): MoMoTransformation = {
-    MoMoTransformation(poseTransformation, DiscreteLowRankGpPointTransformation(gpShape), DiscreteLowRankGpPointTransformation(gpColor))
+    MoMoTransformation(poseTransformation, DiscreteLowRankGpPointTransformation(gpShape), DiscreteLowRankGpColorTransformation(gpColor))
   }
 }
 
@@ -1007,7 +1073,7 @@ case class MoMoTransformationView private[ui] (override protected[api] val peer:
     case None => throw new Exception("There is no Gaussian Process (shape) transformation associated with this MoMoTransformationView.")
   }
 
-  def colorTransformationView: DiscreteLowRankGPTransformationView = peer.gaussianColorProcessTransformation.map(DiscreteLowRankGPTransformationView(_)) match {
+  def colorTransformationView: DiscreteLowRankGPColorTransformationView = peer.gaussianColorProcessTransformation.map(DiscreteLowRankGPColorTransformationView(_)) match {
     case Some(sv) => sv
     case None => throw new Exception("There is no Gaussian Process (color) transformation associated with this MoMoTransformationView.")
   }

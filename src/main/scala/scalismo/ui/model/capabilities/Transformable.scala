@@ -33,8 +33,6 @@ object Transformable {
 trait Transformable[T] extends RenderableSceneNode with Grouped {
   def source: T // the untransformed T
 
-  println(s"Transformable [T]")
-
   private def genericTransformationsNode: GenericTransformationsNode = group.genericTransformations
 
   private def shapeModelTransformationsNode: ShapeModelTransformationsNode = group.shapeModelTransformations
@@ -46,12 +44,11 @@ trait Transformable[T] extends RenderableSceneNode with Grouped {
 //    genericTransformationsNode.combinedTransformation
 //  }
 
-  private def combinedTransformMoMo = momoTransformationsNode.combinedTransformation.map(smT => genericTransformationsNode.combinedTransformation compose smT) getOrElse {
-    println("combined transform function stuff")
+  private def combinedTransform = momoTransformationsNode.combinedTransformation.map(smT => genericTransformationsNode.combinedTransformation compose smT) getOrElse {
     genericTransformationsNode.combinedTransformation
   }
 
-  private var _transformedSource = transform(source, combinedTransformMoMo)
+  private var _transformedSource = transform(source, combinedTransform)
 
   def transformedSource: T = _transformedSource
 
@@ -63,9 +60,8 @@ trait Transformable[T] extends RenderableSceneNode with Grouped {
 //    publishEvent(Transformable.event.GeometryChanged(this))
 //  }
 
-  def updateTransformedSourceMoMo(): Unit = {
-    println("Update transformed source MoMo")
-    _transformedSource = transform(source, combinedTransformMoMo)
+  def updateTransformedSource(): Unit = {
+    _transformedSource = transform(source, combinedTransform)
     publishEvent(Transformable.event.GeometryChanged(this))
   }
 
@@ -75,8 +71,8 @@ trait Transformable[T] extends RenderableSceneNode with Grouped {
 
 
   reactions += {
-    case GenericTransformationsNode.event.TransformationsChanged(_) => updateTransformedSourceMoMo()
+    case GenericTransformationsNode.event.TransformationsChanged(_) => updateTransformedSource()
 //    case ShapeModelTransformationsNode.event.ShapeModelTransformationsChanged(_) => updateTransformedSource()
-    case MoMoTransformationsNode.event.MoMoTransformationsChanged(_) => updateTransformedSourceMoMo()
+    case MoMoTransformationsNode.event.MoMoTransformationsChanged(_) => updateTransformedSource()
   }
 }

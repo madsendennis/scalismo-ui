@@ -17,15 +17,17 @@
 
 package scalismo.ui.model
 
-import scalismo.color.RGB
+import scalismo.color.{RGB, RGBA}
 import scalismo.common.UnstructuredPointsDomain
 import scalismo.faces.momo.MoMo
-import scalismo.geometry.{ EuclideanVector, Point, _3D }
-import scalismo.statisticalmodel.{ DiscreteLowRankGaussianProcess, StatisticalMeshModel, StatisticalVolumeMeshModel }
+import scalismo.geometry.{EuclideanVector, Point, _3D}
+import scalismo.mesh.{SurfacePointProperty, VertexColorMesh3D}
+import scalismo.statisticalmodel.{DiscreteLowRankGaussianProcess, StatisticalMeshModel, StatisticalVolumeMeshModel}
 import scalismo.ui.api.ShapeModelTransformation
+import scalismo.ui.api.ShowInScene.ShowVertexColorMesh
 import scalismo.ui.event.ScalismoPublisher
 import scalismo.ui.model.Scene.event.SceneChanged
-import scalismo.ui.model.capabilities.{ Removeable, Renameable }
+import scalismo.ui.model.capabilities.{Removeable, Renameable}
 
 class GroupsNode(override val parent: Scene) extends SceneNodeCollection[GroupNode] {
   override val name = "Groups"
@@ -113,7 +115,12 @@ class GroupNode(override val parent: GroupsNode, initialName: String, initallyHi
 
   def addMoMo(model: MoMo, initialName: String): Unit = {
 
-    triangleMeshes.add(model.referenceMesh, initialName)
+    val vcol = model.neutralModel.color.mean.data.seq.map(RGBA(_))
+    val col: SurfacePointProperty[RGBA] = SurfacePointProperty(model.referenceMesh.triangulation, vcol)
+    val referenceColor = VertexColorMesh3D(model.referenceMesh, col)
+    colorMeshes.add(referenceColor, initialName)
+
+//    triangleMeshes.add(model.referenceMesh, initialName)
 
     val momoGPshape: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], Point[_3D]] = model.neutralModel.shape.gpModel
     val momoGPcolor: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], RGB] = model.neutralModel.color.gpModel
@@ -121,14 +128,14 @@ class GroupNode(override val parent: GroupsNode, initialName: String, initallyHi
     val gpShape: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], EuclideanVector[_3D]] =
       new DiscreteLowRankGaussianProcess(momoGPshape.domain, momoGPshape.meanVector, momoGPshape.variance, momoGPshape.basisMatrix)
 
-    //    val gpColor: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], EuclideanVector[_3D]] =
-    //      new DiscreteLowRankGaussianProcess(momoGPcolor.domain, momoGPcolor.meanVector, momoGPcolor.variance, momoGPcolor.basisMatrix)
+    val gpColor: DiscreteLowRankGaussianProcess[_3D, UnstructuredPointsDomain[_3D], EuclideanVector[_3D]] =
+      new DiscreteLowRankGaussianProcess(momoGPcolor.domain, momoGPcolor.meanVector, momoGPcolor.variance, momoGPcolor.basisMatrix)
 
     //    val shapeModelTransform = ShapeModelTransformation(PointTransformation.RigidIdentity, gpShape)
 
     momoTransformations.addPoseTransformation(PointTransformation.RigidIdentity)
     momoTransformations.addShapeGaussianProcessTransformation(DiscreteLowRankGpPointTransformation(gpShape))
-
+    momoTransformations.addColorGaussianProcessTransformation(DiscreteLowRankGpColorTransformation(gpColor))
   }
 
   override def remove(): Unit = parent.remove(this)

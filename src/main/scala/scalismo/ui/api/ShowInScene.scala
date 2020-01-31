@@ -305,10 +305,10 @@ object ShowInScene extends LowPriorityImplicits {
     override type View = MoMoTransformationView
 
     override def showInScene(transform: MoMoTransformation, name: String, group: Group): View = {
-      println("Show MoMo transformations")
+
       val t = for {
         _ <- group.peer.momoTransformations.addPoseTransformation(transform.poseTransformation)
-//        _ <- group.peer.momoTransformations.addShapeGaussianProcessTransformation(transform.shapeTransformation)
+        _ <- group.peer.momoTransformations.addShapeGaussianProcessTransformation(transform.shapeTransformation)
         _ <- group.peer.momoTransformations.addColorGaussianProcessTransformation(transform.colorTransformation)
       } yield MoMoTransformationView(group.peer.momoTransformations)
       t.get
